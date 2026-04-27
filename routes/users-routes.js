@@ -1,6 +1,5 @@
 const express = require("express");
 const { check } = require("express-validator");
-const multer = require("multer");
 
 const router = express.Router();
 
@@ -15,11 +14,6 @@ router.get("/", usersControllers.getAllUsers);
 router.post(
   "/signup",
   fileUploadMiddleware,
-  // [
-  //   check("name").isLength({ min: 5 }),
-  //   check("email").normalizeEmail().isEmail(),
-  //   check("password").isLength({ min: 5 }),
-  // ],
   usersControllers.signUp
 );
 

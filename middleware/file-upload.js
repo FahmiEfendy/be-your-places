@@ -1,20 +1,11 @@
 const Busboy = require("busboy");
-const admin = require("firebase-admin");
-
-const serviceAccount = require("../yourplaces-back-firebase-adminsdk-fynmo-a5adfc9b20.json");
 
 const MIME_TYPE_MAP = {
   "image/png": "png",
   "image/jpg": "jpg",
   "image/jpeg": "jpeg",
+  "image/webp": "webp",
 };
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  storageBucket: "yourplaces-back.appspot.com",
-});
-
-const storage = admin.storage();
 
 const fileUploadMiddleware = (req, res, next) => {
   if (
@@ -24,46 +15,49 @@ const fileUploadMiddleware = (req, res, next) => {
     return next();
   }
 
-  const busboy = new Busboy({ headers: req.headers });
+  const busboy = Busboy({ headers: req.headers });
 
   const buffers = [];
   let formData = {};
-  let fileName = "";
-  let filePath = "";
+  let originalFileName = "";
+  let mimeType = "";
 
   busboy.on("field", (fieldname, val) => {
     formData[fieldname] = val;
   });
 
-  busboy.on("file", (fieldname, file, originalname, encoding, mimetype) => {
+  busboy.on("file", (fieldname, file, info) => {
+    const { filename, encoding, mimetype } = info;
     const ext = MIME_TYPE_MAP[mimetype];
     if (!ext) {
       return res.status(400).json({ error: "Invalid File Type!" });
     }
 
-    const buffer = [];
+    mimeType = mimetype;
+    originalFileName = filename;
 
     file.on("data", (data) => {
-      buffer.push(data);
+      buffers.push(data);
     });
 
     file.on("end", () => {
-      buffers.push(Buffer.concat(buffer));
-      fileName = originalname;
-      filePath = formData.address ? "places" : "users";
+      // File fully received
     });
   });
 
   busboy.on("finish", () => {
     req.body = formData;
-    req.file = {
-      originalname: `${filePath}/${fileName}`,
-      buffer: Buffer.concat(buffers),
-    };
+    if (buffers.length > 0) {
+      req.file = {
+        originalname: originalFileName,
+        buffer: Buffer.concat(buffers),
+        mimetype: mimeType,
+      };
+    }
     next();
   });
 
   req.pipe(busboy);
 };
 
-module.exports = { fileUploadMiddleware, storage };
+module.exports = { fileUploadMiddleware };
