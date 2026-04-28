@@ -41,7 +41,7 @@ app.use((req, res, next) => {
 // Global Error Handler
 app.use((err, req, res, next) => {
   // Trace error in console
-  console.error(`[ERROR] ${req.method} ${req.url} - ${err.message}`);
+  console.error(`[ERROR] ${req.method} ${req.originalUrl} - ${err.message}`);
   if (err.stack) {
     console.error(err.stack);
   }
