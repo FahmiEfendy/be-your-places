@@ -1,6 +1,7 @@
 const fs = require("fs");
 const cors = require("cors");
 const path = require("path");
+const morgan = require("morgan");
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
@@ -12,6 +13,7 @@ const placesRoutes = require("./routes/places-routes");
 
 const app = express();
 
+app.use(morgan(process.env.LOG_FORMAT || "dev")); // Log every request to the console
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -38,6 +40,12 @@ app.use((req, res, next) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
+  // Trace error in console
+  console.error(`[ERROR] ${req.method} ${req.url} - ${err.message}`);
+  if (err.stack) {
+    console.error(err.stack);
+  }
+
   if (res.headerSent) {
     return next(err);
   }
@@ -49,7 +57,7 @@ app.use((err, req, res, next) => {
 // MongoDB Connection
 const connectDB = async () => {
   const { DB_USER, DB_PASSWORD, DB_NAME, MONGODB_URI } = process.env;
-  
+
   // Use MONGODB_URI if provided, otherwise construct the Atlas URI
   const mongoUri = MONGODB_URI || `mongodb+srv://${encodeURIComponent(DB_USER)}:${encodeURIComponent(
     DB_PASSWORD
