@@ -48,8 +48,10 @@ app.use((err, req, res, next) => {
 
 // MongoDB Connection
 const connectDB = async () => {
-  const { DB_USER, DB_PASSWORD, DB_NAME } = process.env;
-  const mongoUri = `mongodb+srv://${encodeURIComponent(DB_USER)}:${encodeURIComponent(
+  const { DB_USER, DB_PASSWORD, DB_NAME, MONGODB_URI } = process.env;
+  
+  // Use MONGODB_URI if provided, otherwise construct the Atlas URI
+  const mongoUri = MONGODB_URI || `mongodb+srv://${encodeURIComponent(DB_USER)}:${encodeURIComponent(
     DB_PASSWORD
   )}@${DB_NAME}.o1y8qtm.mongodb.net/?retryWrites=true&w=majority&appName=${DB_NAME}`;
 
