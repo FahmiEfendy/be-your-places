@@ -55,6 +55,8 @@ const connectDB = async () => {
     DB_PASSWORD
   )}@${DB_NAME}.o1y8qtm.mongodb.net/?retryWrites=true&w=majority&appName=${DB_NAME}`;
 
+  console.log("Connecting to MongoDB:", mongoUri.replace(/\/\/.*:.*@/, "//admin:****@"));
+
   try {
     await mongoose.connect(mongoUri);
     console.log("Successfully connected to database!");
