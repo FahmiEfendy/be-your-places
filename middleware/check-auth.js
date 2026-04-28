@@ -1,5 +1,4 @@
 const jwt = require("jsonwebtoken");
-const functions = require("firebase-functions");
 const HttpError = require("../models/http-error");
 
 const checkToken = (req, res, next) => {
