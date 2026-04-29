@@ -126,12 +126,9 @@ const createPlace = async (req, res, next) => {
   }
 
   try {
-    const sess = await mongoose.startSession();
-    sess.startTransaction();
-    await newPlace.save({ session: sess });
+    await newPlace.save();
     user.places.push(newPlace);
-    await user.save({ session: sess });
-    await sess.commitTransaction();
+    await user.save();
   } catch (err) {
     return next(new HttpError("Creating place failed, please try again.", 500));
   }
@@ -198,12 +195,9 @@ const deletePlace = async (req, res, next) => {
   const imagePublicId = selectedPlace.image;
 
   try {
-    const sess = await mongoose.startSession();
-    sess.startTransaction();
-    await selectedPlace.deleteOne({ session: sess });
+    await selectedPlace.deleteOne();
     selectedPlace.creator.places.pull(selectedPlace);
-    await selectedPlace.creator.save({ session: sess });
-    await sess.commitTransaction();
+    await selectedPlace.creator.save();
   } catch (err) {
     return next(new HttpError("Deleting place failed, please try again.", 500));
   }
