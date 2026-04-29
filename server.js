@@ -4,6 +4,7 @@ const path = require("path");
 const morgan = require("morgan");
 const express = require("express");
 const mongoose = require("mongoose");
+const logger = require("./utils/logger");
 const bodyParser = require("body-parser");
 require("dotenv").config();
 
@@ -13,7 +14,19 @@ const placesRoutes = require("./routes/places-routes");
 
 const app = express();
 
-app.use(morgan(process.env.LOG_FORMAT || "dev")); // Log every request to the console
+// Request Logger
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    const message = `${req.method} ${req.originalUrl} ${res.statusCode}`;
+    if (res.statusCode >= 400) {
+      logger.error(message);
+    } else {
+      logger.info(message);
+    }
+  });
+  next();
+});
+
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -40,11 +53,10 @@ app.use((req, res, next) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  // Trace error in console
-  console.error(`[ERROR] ${req.method} ${req.originalUrl} - ${err.message}`);
-  if (err.stack) {
-    console.error(err.stack);
-  }
+  // Use Winston to log error
+  logger.error(`${req.method} ${req.originalUrl} - ${err.message}`, {
+    stack: err.stack,
+  });
 
   if (res.headerSent) {
     return next(err);
@@ -67,9 +79,9 @@ const connectDB = async () => {
 
   try {
     await mongoose.connect(mongoUri);
-    console.log("Successfully connected to database!");
+    logger.info("Successfully connected to database!");
   } catch (err) {
-    console.error("Database connection failed:", err.message);
+    logger.error("Database connection failed:", err);
     process.exit(1);
   }
 };
@@ -78,6 +90,6 @@ const PORT = process.env.PORT || 5001;
 
 connectDB().then(() => {
   app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    logger.info(`Server is running on port ${PORT}`);
   });
 });

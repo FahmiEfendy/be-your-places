@@ -1,5 +1,6 @@
 const axios = require("axios");
 const FormData = require("form-data");
+const logger = require("./logger");
 
 const API_KEY = process.env.OPENINARY_API_KEY;
 const OPENINARY_URL = process.env.OPENINARY_URL || "http://localhost:3000";
@@ -10,9 +11,9 @@ const uploadImage = async (buffer, filename) => {
   }
 
   const form = new FormData();
-  form.append("file", buffer, filename);
+  form.append("image", buffer, filename);
 
-  console.log("Openinary Upload Debug:", {
+  logger.info("Openinary Upload Debug:", {
     url: `${OPENINARY_URL}/api/upload`,
     apiKeyExists: !!API_KEY,
     apiKeyLength: API_KEY.length,
@@ -31,13 +32,13 @@ const uploadImage = async (buffer, filename) => {
     return response.data;
   } catch (error) {
     if (error.response) {
-      console.error("Openinary upload error (Response):", {
+      logger.error("Openinary upload error (Response):", {
         status: error.response.status,
         data: error.response.data,
         headers: error.response.headers,
       });
     } else {
-      console.error("Openinary upload error (Message):", error.message);
+      logger.error("Openinary upload error (Message):", error.message);
     }
     throw new Error("Could not upload image to Openinary.");
   }

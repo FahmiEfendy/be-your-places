@@ -1,4 +1,5 @@
 const Busboy = require("busboy");
+const logger = require("../utils/logger");
 
 const MIME_TYPE_MAP = {
   "image/png": "png",
@@ -28,10 +29,10 @@ const fileUploadMiddleware = (req, res, next) => {
 
   busboy.on("file", (fieldname, file, info) => {
     const { filename, encoding, mimeType } = info;
-    console.log("File Upload Debug:", { filename, mimeType }); // Debug log
+    logger.info("File Upload Debug:", { filename, mimeType }); // Debug log
     const ext = MIME_TYPE_MAP[mimeType];
     if (!ext) {
-      console.log("Validation Failed: Mimetype", mimeType, "not in MIME_TYPE_MAP");
+      logger.error(`Validation Failed: Mimetype ${mimeType} not in MIME_TYPE_MAP`);
       return res.status(400).json({ error: "Invalid File Type!" });
     }
 
