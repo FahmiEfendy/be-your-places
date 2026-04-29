@@ -2,8 +2,12 @@ const { createLogger, format, transports } = require("winston");
 const { combine, timestamp, printf, colorize, errors } = format;
 
 // Custom format for logs
-const logFormat = printf(({ level, message, timestamp, stack }) => {
-  return `${timestamp} [${level}]: ${stack || message}`;
+const logFormat = printf(({ level, message, timestamp, stack, ...metadata }) => {
+  let msg = `${timestamp} [${level}]: ${stack || message}`;
+  if (Object.keys(metadata).length > 0) {
+    msg += ` ${JSON.stringify(metadata, null, 2)}`;
+  }
+  return msg;
 });
 
 const logger = createLogger({
