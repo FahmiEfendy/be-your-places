@@ -1,7 +1,4 @@
-const fs = require("fs");
 const cors = require("cors");
-const path = require("path");
-const morgan = require("morgan");
 const express = require("express");
 const mongoose = require("mongoose");
 const logger = require("./utils/logger");
@@ -31,15 +28,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE");
-  next();
-});
+
 
 // Routes
 app.use("/api/places", placesRoutes);

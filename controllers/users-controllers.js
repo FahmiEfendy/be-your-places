@@ -65,8 +65,7 @@ const signUp = async (req, res, next) => {
     try {
       processedData = JSON.parse(imageData);
     } catch (e) {
-      logger.error(`Failed to parse Openinary response string. Type: ${typeof imageData}, Length: ${imageData.length}`);
-      logger.error(`Content Preview: ${imageData.substring(0, 200)}`);
+      logger.error("Failed to parse Openinary response as JSON.");
     }
   }
 
@@ -77,15 +76,11 @@ const signUp = async (req, res, next) => {
   } else if (Array.isArray(processedData)) {
     imageInfo = processedData[0];
   }
-  
-  if (imageInfo && typeof imageInfo === "object") {
-    logger.info("Final Image Info Keys:", Object.keys(imageInfo));
-  }
 
   const imagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
 
   if (!imagePath) {
-    logger.error("No path found in imageInfo:", imageInfo);
+    logger.error("No image path found in Openinary response.");
     return next(new HttpError("Image upload succeeded but no path was returned.", 500));
   }
 
