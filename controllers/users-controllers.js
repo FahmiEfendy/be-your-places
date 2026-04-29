@@ -52,18 +52,24 @@ const signUp = async (req, res, next) => {
   let imageData;
   try {
     imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype);
-    logger.info("Openinary Upload Success:", imageData);
+    // Only log the essential info to avoid circular reference crashes
+    logger.info("Openinary Upload Success! Data received.");
   } catch (err) {
     return next(new HttpError("Image upload failed.", 500));
   }
 
   // Openinary returns an array when using 'files' field
   const imageInfo = Array.isArray(imageData) ? imageData[0] : imageData;
+  const imagePath = imageInfo ? (imageInfo.public_id || imageInfo.url) : null;
+
+  if (!imagePath) {
+    return next(new HttpError("Image upload succeeded but no path was returned.", 500));
+  }
 
   const newUser = new User({
     name,
     email,
-    image: imageInfo.public_id || imageInfo.url,
+    image: imagePath,
     password: hashedPassword,
     places: [],
   });
