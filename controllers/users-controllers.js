@@ -52,7 +52,7 @@ const signUp = async (req, res, next) => {
   // Upload to Openinary
   let imageData;
   try {
-    imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype);
+    imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype, "Your_Places/profile");
     // Only log the essential info to avoid circular reference crashes
     logger.info("Openinary Upload Success! Data received.");
   } catch (err) {

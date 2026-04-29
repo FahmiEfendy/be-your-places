@@ -2,7 +2,7 @@ const axios = require("axios");
 const FormData = require("form-data");
 const logger = require("./logger");
 
-const uploadImage = async (buffer, filename, mimetype) => {
+const uploadImage = async (buffer, filename, mimetype, folder) => {
   const apiKey = (process.env.OPENINARY_API_KEY || "").trim();
   const baseUrl = (process.env.OPENINARY_URL || "http://localhost:3000").trim();
 
@@ -16,6 +16,11 @@ const uploadImage = async (buffer, filename, mimetype) => {
     filename: filename,
     contentType: mimetype || "image/jpeg"
   });
+
+  // Add folder if provided
+  if (folder) {
+    form.append("folder", folder);
+  }
 
   logger.info("Openinary Upload Debug:", {
     url: `${baseUrl}/api/upload`,
