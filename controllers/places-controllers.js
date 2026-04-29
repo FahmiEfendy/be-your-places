@@ -1,24 +1,18 @@
-const fs = require("fs");
-const mongoose = require("mongoose");
-const { storage } = require("../middleware/file-upload");
 const { validationResult } = require("express-validator");
+const logger = require("../utils/logger");
 
 const User = require("../models/user");
 const Place = require("../models/place");
 const HttpError = require("../models/http-error");
 const addressToCoordinates = require("../utils/location");
+const { uploadImage, deleteImage } = require("../utils/openinary");
 
 const getAllPlaces = async (req, res, next) => {
   let result;
-
   try {
     result = await Place.find();
   } catch (err) {
-    const error = new HttpError(
-      `Failed to get all data because of ${err.message}`,
-      500
-    );
-    return next(error);
+    return next(new HttpError(`Failed to get all data: ${err.message}`, 500));
   }
 
   res.status(200).json({
@@ -29,47 +23,34 @@ const getAllPlaces = async (req, res, next) => {
 
 const getPlacesByUserId = async (req, res, next) => {
   const userId = req.params.uid;
-
   let userWithPlaces;
 
   try {
     userWithPlaces = await User.findById(userId).populate("places");
   } catch (err) {
-    const error = new HttpError(
-      `Failed to get all places from user with id of ${userId} because of ${err.message}`,
-      500
-    );
-    return next(error);
+    return next(new HttpError(`Failed to get user places: ${err.message}`, 500));
   }
 
   res.status(200).json({
     message: `Successfully get all place from user with id of ${userId}`,
-
-    data: userWithPlaces.toObject({ getters: true }),
+    data: userWithPlaces ? userWithPlaces.toObject({ getters: true }) : { places: [] },
   });
 };
 
 const getPlaceByPlaceId = async (req, res, next) => {
   const placeId = req.params.pid;
-
   let selectedPlace;
 
   try {
     selectedPlace = await Place.findById(placeId);
   } catch (err) {
-    const error = new HttpError(
-      `Failed to get a place with id of ${placeId} because of ${err.message}`,
-      500
-    );
-    return next(error);
+    return next(new HttpError(`Failed to get place: ${err.message}`, 500));
   }
 
   if (!selectedPlace) {
-    const error = new HttpError(`There is no place with id of ${placeId}`, 404);
-    return next(error);
+    return next(new HttpError(`There is no place with id of ${placeId}`, 404));
   }
 
-  // getters:true = add ID (String) property to object
   res.json({
     message: `Successfully get a place with id of ${placeId}`,
     data: selectedPlace.toObject({ getters: true }),
@@ -77,122 +58,104 @@ const getPlaceByPlaceId = async (req, res, next) => {
 };
 
 const createPlace = async (req, res, next) => {
-  const file = req.file;
+  const error = validationResult(req);
+  if (!error.isEmpty()) {
+    return next(new HttpError("Invalid inputs passed, please check your data.", 422));
+  }
 
-  const bucket = storage.bucket();
-  const storageRef = bucket.file(file.originalname);
-  const blobStream = storageRef.createWriteStream();
+  const { title, description, address } = req.body;
+  let coordinates;
+  try {
+    coordinates = await addressToCoordinates(address);
+  } catch (error) {
+    return next(error);
+  }
 
-  blobStream.on("finish", async () => {
-    const error = validationResult(req);
-    if (!error.isEmpty()) {
-      return next(
-        new HttpError(
-          `Input value for ${error.errors[0].param} is an ${error.errors[0].msg}`
-        )
-      );
-    }
+  // Upload to Openinary
+  let imageData;
+  try {
+    imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype, "Your_Places/place");
+    logger.info("Openinary Upload Success! Data received.");
+  } catch (err) {
+    return next(new HttpError("Image upload failed.", 500));
+  }
 
-    const { title, description, address, creator } = req.body;
-
-    let coordinates;
-    let user;
-
+  // Openinary might return a string that needs parsing
+  let processedData = imageData;
+  if (typeof imageData === "string") {
     try {
-      coordinates = await addressToCoordinates(address);
-    } catch (error) {
-      return next(error);
+      processedData = JSON.parse(imageData);
+    } catch (e) {
+      logger.error("Failed to parse Openinary response string:", imageData.substring(0, 100));
     }
+  }
 
-    const newPlace = new Place({
-      title,
-      description,
-      image: req.file.originalname,
-      address,
-      coordinates,
-      creator: req.userData.userId,
-    });
+  // Openinary returns an object with a 'files' array
+  let imageInfo = processedData;
+  if (processedData && processedData.files && Array.isArray(processedData.files)) {
+    imageInfo = processedData.files[0];
+  } else if (Array.isArray(processedData)) {
+    imageInfo = processedData[0];
+  }
 
-    try {
-      user = await User.findById(req.userData.userId);
-    } catch (err) {
-      return next(
-        new HttpError(
-          `Failed to find a user with id of ${creator} because of ${err.message}`
-        ),
-        500
-      );
-    }
+  const imagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
 
-    if (!user) {
-      return next(new HttpError(`There is no user with id of ${creator}`, 404));
-    }
+  if (!imagePath) {
+    return next(new HttpError("Image upload succeeded but no path was returned.", 500));
+  }
 
-    try {
-      const sess = await mongoose.startSession();
-      sess.startTransaction();
-      await newPlace.save({ session: sess }); // Activate Session
-      user.places.push(newPlace); // Add newPlace to user
-      await user.save({ session: sess }); // Activate Session
-      await sess.commitTransaction(); // Run changes from activated session
-    } catch (err) {
-      const error = new HttpError(
-        `Failed to created new data because of ${err.message}`,
-        500
-      );
-      return next(error);
-    }
-
-    res.status(201).json({
-      message: "Successfully created new data!",
-      data: newPlace.toObject({ getters: true }),
-    });
+  const newPlace = new Place({
+    title,
+    description,
+    image: imagePath, // Store the ID or URL
+    address,
+    coordinates,
+    creator: req.userData.userId,
   });
 
-  blobStream.on("error", (error) => {
-    console.error(error);
-    res.status(500).json({
-      message: "File upload failed",
-    });
-  });
+  let user;
+  try {
+    user = await User.findById(req.userData.userId);
+  } catch (err) {
+    return next(new HttpError("Creating place failed, please try again.", 500));
+  }
 
-  blobStream.end(file.buffer);
+  if (!user) {
+    return next(new HttpError("Could not find user for provided id", 404));
+  }
+
+  try {
+    await newPlace.save();
+    user.places.push(newPlace);
+    await user.save();
+  } catch (err) {
+    return next(new HttpError("Creating place failed, please try again.", 500));
+  }
+
+  res.status(201).json({
+    message: "Successfully created new data!",
+    data: newPlace.toObject({ getters: true }),
+  });
 };
 
 const updatePlace = async (req, res, next) => {
   const error = validationResult(req);
   if (!error.isEmpty()) {
-    return next(
-      HttpError(
-        `Input value for ${error.errors[0].param} is an ${error.errors[0].msg}`
-      )
-    );
+    return next(new HttpError("Invalid inputs passed, please check your data.", 422));
   }
 
   const { title, description } = req.body;
   const placeId = req.params.pid;
-
   let selectedPlace;
 
   try {
     selectedPlace = await Place.findById(placeId);
   } catch (err) {
-    const error = new HttpError(
-      `Failed to get a place with id of ${placeId} because of ${err.message}`,
-      500
-    );
-    return next(error);
-  }
-
-  if (!selectedPlace) {
-    const error = new HttpError(`There is no place with id of ${placeId}`, 404);
-    return next(error);
+    return next(new HttpError("Updating place failed, please try again.", 500));
   }
 
   if (selectedPlace.creator.toString() !== req.userData.userId) {
-    return next(
-      new HttpError("You are not authorized to edit this place", 401)
-    );
+    return next(new HttpError("You are not authorized to edit this place", 401));
   }
 
   selectedPlace.title = title;
@@ -201,11 +164,7 @@ const updatePlace = async (req, res, next) => {
   try {
     await selectedPlace.save();
   } catch (err) {
-    const error = new HttpError(
-      `Failed to update a place with id of ${placeId} because of ${err.message}`,
-      500
-    );
-    return next(error);
+    return next(new HttpError("Updating place failed, please try again.", 500));
   }
 
   res.status(200).json({
@@ -216,69 +175,36 @@ const updatePlace = async (req, res, next) => {
 
 const deletePlace = async (req, res, next) => {
   const placeId = req.params.pid;
-
   let selectedPlace;
-  let user;
 
   try {
-    // populate(): Expand property creator in place
     selectedPlace = await Place.findById(placeId).populate("creator");
   } catch (err) {
-    const error = new HttpError(
-      `Failed to get a place with id of ${placeId} because of ${err.message}`,
-      500
-    );
-    return next(error);
+    return next(new HttpError("Deleting place failed, please try again.", 500));
   }
 
   if (!selectedPlace) {
-    const error = new HttpError(`There is no place with id of ${placeId}`, 404);
-    return next(error);
+    return next(new HttpError("Could not find place for this id.", 404));
   }
 
   if (selectedPlace.creator.id !== req.userData.userId) {
-    return next(
-      new HttpError("You are not authorized to delete this place", 401)
-    );
+    return next(new HttpError("You are not authorized to delete this place", 401));
   }
 
-  const imagePath = selectedPlace.image;
+  const imagePublicId = selectedPlace.image;
 
   try {
-    user = await User.findById(selectedPlace.creator.id);
-  } catch (err) {
-    return next(
-      new HttpError(
-        `Failed to find a user with id of ${creator} because of ${err.message}`
-      ),
-      500
-    );
-  }
-
-  if (!user) {
-    return next(new HttpError(`There is no user with id of ${creator}`, 404));
-  }
-
-  try {
-    const sess = await mongoose.startSession();
-    sess.startTransaction();
-    await selectedPlace.deleteOne({ session: sess }); // Delete a place
+    await selectedPlace.deleteOne();
     selectedPlace.creator.places.pull(selectedPlace);
-    await selectedPlace.creator.save({ session: sess }); // Delete a place from user
-    await sess.commitTransaction();
+    await selectedPlace.creator.save();
   } catch (err) {
-    const error = new HttpError(
-      `Failed to delete a place with id of ${placeId} because of ${err.message}`,
-      500
-    );
-    return next(error);
+    return next(new HttpError("Deleting place failed, please try again.", 500));
   }
 
-  fs.unlink(imagePath, (err) => console.log(err));
+  // Delete from Openinary
+  await deleteImage(imagePublicId);
 
-  res
-    .status(200)
-    .json({ message: "Successfully deleted a data!", data: selectedPlace });
+  res.status(200).json({ message: "Successfully deleted a data!", data: selectedPlace });
 };
 
 exports.getAllPlaces = getAllPlaces;

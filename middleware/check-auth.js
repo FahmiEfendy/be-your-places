@@ -1,12 +1,10 @@
 const jwt = require("jsonwebtoken");
-const functions = require("firebase-functions");
 const HttpError = require("../models/http-error");
 
 const checkToken = (req, res, next) => {
   if (req.method === "OPTIONS") return next();
 
-  const JWT_TOKEN_KEY =
-    process.env.JWT_TOKEN_KEY || functions.config().jwt_token_key;
+  const JWT_TOKEN_KEY = process.env.JWT_TOKEN_KEY;
 
   try {
     // "Bearer TOKEN" (Extract TOKEN with [1])
@@ -15,17 +13,14 @@ const checkToken = (req, res, next) => {
     // Check if token exist
     if (!token) throw new Error("Authentication failed!");
 
-    // Verfity token
-    // "SUPER_SECRET_DONT_SHARE": key when generate token
+    // Verify token
     const decodedToken = jwt.verify(token, JWT_TOKEN_KEY);
     req.userData = { userId: decodedToken.userId };
-    next(); // Move to next rotue
+    next();
   } catch (err) {
-    if (!token) {
-      return next(
-        new HttpError(`Authentication failed because of ${err.message}`, 403)
-      );
-    }
+    return next(
+      new HttpError(`Authentication failed because of ${err.message}`, 403)
+    );
   }
 };
 

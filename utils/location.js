@@ -1,8 +1,7 @@
 const axios = require("axios");
 const HttpError = require("../models/http-error");
-const functions = require("firebase-functions");
 
-const API_KEY = process.env.GOOGLE_API_KEY || functions.config().google_api_key;
+const API_KEY = process.env.GOOGLE_API_KEY;
 
 async function addressToCoordinates(address) {
   const response = await axios.get(

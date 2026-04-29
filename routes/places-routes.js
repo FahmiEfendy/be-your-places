@@ -2,7 +2,7 @@ const express = require("express");
 const { check } = require("express-validator");
 
 const checkAuth = require("../middleware/check-auth");
-const { fileUploadMiddleware } = require("../middleware/file-upload");
+const fileUpload = require("../middleware/file-upload");
 
 const placesControllers = require("../controllers/places-controllers");
 
@@ -24,7 +24,7 @@ router.use(checkAuth);
 // api/places/
 router.post(
   "/",
-  fileUploadMiddleware,
+  fileUpload.single("image"),
   [
     check("title").not().isEmpty(),
     check("description").isLength({ min: 5 }),
