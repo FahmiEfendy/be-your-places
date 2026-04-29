@@ -12,6 +12,13 @@ const uploadImage = async (buffer, filename) => {
   const form = new FormData();
   form.append("file", buffer, filename);
 
+  console.log("Openinary Upload Debug:", {
+    url: `${OPENINARY_URL}/api/upload`,
+    apiKeyExists: !!API_KEY,
+    apiKeyLength: API_KEY ? API_KEY.length : 0,
+    apiKeyPreview: API_KEY ? `${API_KEY.substring(0, 5)}...` : "NONE",
+  });
+
   try {
     const response = await axios.post(`${OPENINARY_URL}/api/upload`, form, {
       headers: {
