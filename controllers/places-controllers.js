@@ -92,9 +92,15 @@ const createPlace = async (req, res, next) => {
     }
   }
 
-  // Openinary returns an array when using 'files' field
-  const imageInfo = Array.isArray(processedData) ? processedData[0] : processedData;
-  const imagePath = imageInfo ? (imageInfo.public_id || imageInfo.url || imageInfo.id || imageInfo.path) : null;
+  // Openinary returns an object with a 'files' array
+  let imageInfo = processedData;
+  if (processedData && processedData.files && Array.isArray(processedData.files)) {
+    imageInfo = processedData.files[0];
+  } else if (Array.isArray(processedData)) {
+    imageInfo = processedData[0];
+  }
+
+  const imagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
 
   if (!imagePath) {
     return next(new HttpError("Image upload succeeded but no path was returned.", 500));

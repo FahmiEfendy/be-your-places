@@ -70,16 +70,22 @@ const signUp = async (req, res, next) => {
     }
   }
 
-  // Openinary returns an array when using 'files' field
-  const imageInfo = Array.isArray(processedData) ? processedData[0] : processedData;
+  // Openinary returns an object with a 'files' array
+  let imageInfo = processedData;
+  if (processedData && processedData.files && Array.isArray(processedData.files)) {
+    imageInfo = processedData.files[0];
+  } else if (Array.isArray(processedData)) {
+    imageInfo = processedData[0];
+  }
   
   if (imageInfo && typeof imageInfo === "object") {
-    logger.info("Openinary Response Keys:", Object.keys(imageInfo));
+    logger.info("Final Image Info Keys:", Object.keys(imageInfo));
   }
 
-  const imagePath = imageInfo ? (imageInfo.public_id || imageInfo.url || imageInfo.id || imageInfo.path) : null;
+  const imagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
 
   if (!imagePath) {
+    logger.error("No path found in imageInfo:", imageInfo);
     return next(new HttpError("Image upload succeeded but no path was returned.", 500));
   }
 
