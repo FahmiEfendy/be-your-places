@@ -25,6 +25,8 @@ const uploadImage = async (buffer, filename, mimetype) => {
     mimetype
   });
 
+  logger.info("DEBUG: About to send request to Openinary...");
+
   try {
     const response = await axios.post(`${baseUrl}/upload`, form, {
       headers: {
@@ -32,13 +34,14 @@ const uploadImage = async (buffer, filename, mimetype) => {
         "Authorization": `Bearer ${apiKey}`,
       },
     });
+    logger.info("DEBUG: Openinary response received!");
     return response.data;
   } catch (error) {
-    console.error("DEBUG: Openinary upload FAILED!");
-    console.error("DEBUG: Message:", error.message);
+    logger.info("DEBUG: CATCH block triggered!");
+    logger.error("DEBUG: Error Message:", error.message);
     if (error.response) {
-      console.error("DEBUG: Status:", error.response.status);
-      console.error("DEBUG: Data:", JSON.stringify(error.response.data));
+      logger.error("DEBUG: Status Code:", error.response.status);
+      logger.error("DEBUG: Response Data:", JSON.stringify(error.response.data));
     }
     throw new Error("Could not upload image to Openinary.");
   }
