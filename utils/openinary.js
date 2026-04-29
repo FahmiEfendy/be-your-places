@@ -2,35 +2,34 @@ const axios = require("axios");
 const FormData = require("form-data");
 const logger = require("./logger");
 
-const API_KEY = process.env.OPENINARY_API_KEY;
-const OPENINARY_URL = process.env.OPENINARY_URL || "http://localhost:3000";
+const uploadImage = async (buffer, filename, mimetype) => {
+  const apiKey = (process.env.OPENINARY_API_KEY || "").trim();
+  const baseUrl = (process.env.OPENINARY_URL || "http://localhost:3000").trim();
 
-const uploadImage = async (buffer, filename) => {
-  if (!API_KEY) {
-    console.warn("OPENINARY_API_KEY is not set. Upload may fail.");
+  if (!apiKey) {
+    logger.warn("OPENINARY_API_KEY is not set. Upload may fail.");
   }
 
   const form = new FormData();
-  // Using 'file' as it is the most common, but adding explicit options
-  form.append("file", buffer, { 
+  // Based on official docs: field name is 'files'
+  form.append("files", buffer, { 
     filename: filename,
-    contentType: "image/jpeg" // We can generalize this if needed, but testing with jpeg first
+    contentType: mimetype || "image/jpeg"
   });
 
   logger.info("Openinary Upload Debug:", {
-    url: `${OPENINARY_URL}/api/upload`,
-    apiKeyExists: !!API_KEY,
-    apiKeyLength: API_KEY.length,
-    bufferSize: buffer.length,
-    filename: filename
+    url: `${baseUrl}/upload`,
+    apiKeyExists: !!apiKey,
+    bufferSize: buffer ? buffer.length : 0,
+    filename,
+    mimetype
   });
 
   try {
-    const response = await axios.post(`${OPENINARY_URL}/api/upload`, form, {
+    const response = await axios.post(`${baseUrl}/upload`, form, {
       headers: {
         ...form.getHeaders(),
-        "Authorization": `Bearer ${API_KEY}`,
-        "X-API-Key": API_KEY,
+        "Authorization": `Bearer ${apiKey}`,
       },
     });
     return response.data;

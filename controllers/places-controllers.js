@@ -75,7 +75,7 @@ const createPlace = async (req, res, next) => {
   // Upload to Openinary
   let imageData;
   try {
-    imageData = await uploadImage(req.file.buffer, req.file.originalname);
+    imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype);
   } catch (err) {
     return next(new HttpError("Image upload failed.", 500));
   }
