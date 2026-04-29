@@ -11,20 +11,24 @@ const uploadImage = async (buffer, filename) => {
   }
 
   const form = new FormData();
-  form.append("image", buffer, filename);
+  // Using 'file' as it is the most common, but adding explicit options
+  form.append("file", buffer, { 
+    filename: filename,
+    contentType: "image/jpeg" // We can generalize this if needed, but testing with jpeg first
+  });
 
   logger.info("Openinary Upload Debug:", {
     url: `${OPENINARY_URL}/api/upload`,
     apiKeyExists: !!API_KEY,
     apiKeyLength: API_KEY.length,
-    apiKeyPreview: API_KEY ? `${API_KEY.substring(0, 5)}...` : "NONE",
+    bufferSize: buffer.length,
+    filename: filename
   });
 
   try {
     const response = await axios.post(`${OPENINARY_URL}/api/upload`, form, {
       headers: {
         ...form.getHeaders(),
-        // Trying both common formats for API keys
         "Authorization": `Bearer ${API_KEY}`,
         "X-API-Key": API_KEY,
       },
