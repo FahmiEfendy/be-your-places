@@ -34,15 +34,13 @@ const uploadImage = async (buffer, filename, mimetype) => {
     });
     return response.data;
   } catch (error) {
-    if (error.response) {
-      logger.error("Openinary upload error (Response):", {
-        status: error.response.status,
-        data: error.response.data,
-        headers: error.response.headers,
-      });
-    } else {
-      logger.error("Openinary upload error (Message):", error.message);
-    }
+    logger.error("Openinary upload FAILED. Full Error Info:", {
+      message: error.message,
+      code: error.code,
+      status: error.response ? error.response.status : "NO_RESPONSE",
+      data: error.response ? error.response.data : "NO_DATA",
+      stack: error.stack
+    });
     throw new Error("Could not upload image to Openinary.");
   }
 };
