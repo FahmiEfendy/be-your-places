@@ -76,14 +76,18 @@ const createPlace = async (req, res, next) => {
   let imageData;
   try {
     imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype);
+    logger.info("Openinary Upload Success:", imageData);
   } catch (err) {
     return next(new HttpError("Image upload failed.", 500));
   }
 
+  // Openinary returns an array when using 'files' field
+  const imageInfo = Array.isArray(imageData) ? imageData[0] : imageData;
+
   const newPlace = new Place({
     title,
     description,
-    image: imageData.public_id || imageData.url, // Store the ID or URL
+    image: imageInfo.public_id || imageInfo.url, // Store the ID or URL
     address,
     coordinates,
     creator: req.userData.userId,
