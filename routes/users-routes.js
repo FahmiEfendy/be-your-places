@@ -3,7 +3,7 @@ const { check } = require("express-validator");
 
 const router = express.Router();
 
-const { fileUploadMiddleware } = require("../middleware/file-upload");
+const fileUpload = require("../middleware/file-upload");
 
 const usersControllers = require("../controllers/users-controllers");
 
@@ -13,7 +13,7 @@ router.get("/", usersControllers.getAllUsers);
 // api/users/signup
 router.post(
   "/signup",
-  fileUploadMiddleware,
+  fileUpload.single("image"),
   usersControllers.signUp
 );
 

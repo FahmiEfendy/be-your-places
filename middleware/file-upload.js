@@ -1,5 +1,5 @@
-const Busboy = require("busboy");
-const logger = require("../utils/logger");
+const multer = require("multer");
+const { v4: uuidv4 } = require("uuid");
 
 const MIME_TYPE_MAP = {
   "image/png": "png",
@@ -8,59 +8,14 @@ const MIME_TYPE_MAP = {
   "image/webp": "webp",
 };
 
-const fileUploadMiddleware = (req, res, next) => {
-  if (
-    !req.headers["content-type"] ||
-    req.headers["content-type"].indexOf("multipart/form-data") !== 0
-  ) {
-    return next();
-  }
+const fileUpload = multer({
+  limits: 500000,
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    const isValid = !!MIME_TYPE_MAP[file.mimetype];
+    let error = isValid ? null : new Error("Invalid mime type!");
+    cb(error, isValid);
+  },
+});
 
-  const busboy = Busboy({ headers: req.headers });
-
-  const buffers = [];
-  let formData = {};
-  let originalFileName = "";
-  let detectedMimeType = "";
-
-  busboy.on("field", (fieldname, val) => {
-    formData[fieldname] = val;
-  });
-
-  busboy.on("file", (fieldname, file, info) => {
-    const { filename, encoding, mimeType } = info;
-    logger.info("File Upload Debug:", { filename, mimeType }); // Debug log
-    const ext = MIME_TYPE_MAP[mimeType];
-    if (!ext) {
-      logger.error(`Validation Failed: Mimetype ${mimeType} not in MIME_TYPE_MAP`);
-      return res.status(400).json({ error: "Invalid File Type!" });
-    }
-
-    detectedMimeType = mimeType;
-    originalFileName = filename;
-
-    file.on("data", (data) => {
-      buffers.push(data);
-    });
-
-    file.on("end", () => {
-      // File fully received
-    });
-  });
-
-  busboy.on("finish", () => {
-    req.body = formData;
-    if (buffers.length > 0) {
-      req.file = {
-        originalname: originalFileName,
-        buffer: Buffer.concat(buffers),
-        mimetype: detectedMimeType,
-      };
-    }
-    next();
-  });
-
-  req.pipe(busboy);
-};
-
-module.exports = { fileUploadMiddleware };
+module.exports = fileUpload;

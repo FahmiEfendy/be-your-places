@@ -26,6 +26,7 @@
     "mongoose": "^7.0.3",
     "mongoose-unique-validator": "^4.0.0",
     "morgan": "^1.10.1",
+    "multer": "^2.1.1",
     "uuid": "^9.0.0",
     "winston": "^3.19.0"
   },
