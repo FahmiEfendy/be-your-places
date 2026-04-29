@@ -65,7 +65,8 @@ const signUp = async (req, res, next) => {
     try {
       processedData = JSON.parse(imageData);
     } catch (e) {
-      logger.error("Failed to parse Openinary response string:", imageData.substring(0, 100));
+      logger.error(`Failed to parse Openinary response string. Type: ${typeof imageData}, Length: ${imageData.length}`);
+      logger.error(`Content Preview: ${imageData.substring(0, 200)}`);
     }
   }
 
