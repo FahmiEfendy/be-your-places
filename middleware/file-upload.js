@@ -20,22 +20,22 @@ const fileUploadMiddleware = (req, res, next) => {
   const buffers = [];
   let formData = {};
   let originalFileName = "";
-  let mimeType = "";
+  let detectedMimeType = "";
 
   busboy.on("field", (fieldname, val) => {
     formData[fieldname] = val;
   });
 
   busboy.on("file", (fieldname, file, info) => {
-    const { filename, encoding, mimetype } = info;
-    console.log("File Upload Debug:", { filename, mimetype }); // Debug log
-    const ext = MIME_TYPE_MAP[mimetype];
+    const { filename, encoding, mimeType } = info;
+    console.log("File Upload Debug:", { filename, mimeType }); // Debug log
+    const ext = MIME_TYPE_MAP[mimeType];
     if (!ext) {
-      console.log("Validation Failed: Mimetype", mimetype, "not in MIME_TYPE_MAP");
+      console.log("Validation Failed: Mimetype", mimeType, "not in MIME_TYPE_MAP");
       return res.status(400).json({ error: "Invalid File Type!" });
     }
 
-    mimeType = mimetype;
+    detectedMimeType = mimeType;
     originalFileName = filename;
 
     file.on("data", (data) => {
@@ -53,7 +53,7 @@ const fileUploadMiddleware = (req, res, next) => {
       req.file = {
         originalname: originalFileName,
         buffer: Buffer.concat(buffers),
-        mimetype: mimeType,
+        mimetype: detectedMimeType,
       };
     }
     next();
