@@ -15,7 +15,7 @@ const uploadImage = async (buffer, filename) => {
   console.log("Openinary Upload Debug:", {
     url: `${OPENINARY_URL}/api/upload`,
     apiKeyExists: !!API_KEY,
-    apiKeyLength: API_KEY ? API_KEY.length : 0,
+    apiKeyLength: API_KEY.length,
     apiKeyPreview: API_KEY ? `${API_KEY.substring(0, 5)}...` : "NONE",
   });
 
@@ -23,16 +23,22 @@ const uploadImage = async (buffer, filename) => {
     const response = await axios.post(`${OPENINARY_URL}/api/upload`, form, {
       headers: {
         ...form.getHeaders(),
-        Authorization: `Bearer ${API_KEY}`,
+        // Trying both common formats for API keys
+        "Authorization": `Bearer ${API_KEY}`,
+        "X-API-Key": API_KEY,
       },
     });
-    // Assuming Openinary returns an object with public_id or url
     return response.data;
   } catch (error) {
-    console.error(
-      "Openinary upload error:",
-      error.response ? error.response.data : error.message
-    );
+    if (error.response) {
+      console.error("Openinary upload error (Response):", {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers,
+      });
+    } else {
+      console.error("Openinary upload error (Message):", error.message);
+    }
     throw new Error("Could not upload image to Openinary.");
   }
 };
