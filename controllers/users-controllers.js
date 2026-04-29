@@ -59,10 +59,20 @@ const signUp = async (req, res, next) => {
     return next(new HttpError("Image upload failed.", 500));
   }
 
+  // Openinary might return a string that needs parsing
+  let processedData = imageData;
+  if (typeof imageData === "string") {
+    try {
+      processedData = JSON.parse(imageData);
+    } catch (e) {
+      logger.error("Failed to parse Openinary response string:", imageData.substring(0, 100));
+    }
+  }
+
   // Openinary returns an array when using 'files' field
-  const imageInfo = Array.isArray(imageData) ? imageData[0] : imageData;
+  const imageInfo = Array.isArray(processedData) ? processedData[0] : processedData;
   
-  if (imageInfo) {
+  if (imageInfo && typeof imageInfo === "object") {
     logger.info("Openinary Response Keys:", Object.keys(imageInfo));
   }
 

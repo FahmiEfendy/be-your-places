@@ -73,19 +73,19 @@ const createPlace = async (req, res, next) => {
     return next(error);
   }
 
-  // Upload to Openinary
-  let imageData;
-  try {
-    imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype);
-    // Only log the essential info to avoid circular reference crashes
-    logger.info("Openinary Upload Success! Data received.");
-  } catch (err) {
-    return next(new HttpError("Image upload failed.", 500));
+  // Openinary might return a string that needs parsing
+  let processedData = imageData;
+  if (typeof imageData === "string") {
+    try {
+      processedData = JSON.parse(imageData);
+    } catch (e) {
+      logger.error("Failed to parse Openinary response string:", imageData.substring(0, 100));
+    }
   }
 
   // Openinary returns an array when using 'files' field
-  const imageInfo = Array.isArray(imageData) ? imageData[0] : imageData;
-  const imagePath = imageInfo ? (imageInfo.public_id || imageInfo.url) : null;
+  const imageInfo = Array.isArray(processedData) ? processedData[0] : processedData;
+  const imagePath = imageInfo ? (imageInfo.public_id || imageInfo.url || imageInfo.id || imageInfo.path) : null;
 
   if (!imagePath) {
     return next(new HttpError("Image upload succeeded but no path was returned.", 500));
