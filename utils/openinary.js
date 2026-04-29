@@ -18,7 +18,7 @@ const uploadImage = async (buffer, filename, mimetype) => {
   });
 
   logger.info("Openinary Upload Debug:", {
-    url: `${baseUrl}/upload`,
+    url: `${baseUrl}/api/upload`,
     apiKeyExists: !!apiKey,
     bufferSize: buffer ? buffer.length : 0,
     filename,
@@ -28,7 +28,7 @@ const uploadImage = async (buffer, filename, mimetype) => {
   logger.info("DEBUG: About to send request to Openinary...");
 
   try {
-    const response = await axios.post(`${baseUrl}/upload`, form, {
+    const response = await axios.post(`${baseUrl}/api/upload`, form, {
       headers: {
         ...form.getHeaders(),
         "Authorization": `Bearer ${apiKey}`,
