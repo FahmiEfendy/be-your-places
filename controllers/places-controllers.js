@@ -73,6 +73,15 @@ const createPlace = async (req, res, next) => {
     return next(error);
   }
 
+  // Upload to Openinary
+  let imageData;
+  try {
+    imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype);
+    logger.info("Openinary Upload Success! Data received.");
+  } catch (err) {
+    return next(new HttpError("Image upload failed.", 500));
+  }
+
   // Openinary might return a string that needs parsing
   let processedData = imageData;
   if (typeof imageData === "string") {
