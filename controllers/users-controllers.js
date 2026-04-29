@@ -61,7 +61,12 @@ const signUp = async (req, res, next) => {
 
   // Openinary returns an array when using 'files' field
   const imageInfo = Array.isArray(imageData) ? imageData[0] : imageData;
-  const imagePath = imageInfo ? (imageInfo.public_id || imageInfo.url) : null;
+  
+  if (imageInfo) {
+    logger.info("Openinary Response Keys:", Object.keys(imageInfo));
+  }
+
+  const imagePath = imageInfo ? (imageInfo.public_id || imageInfo.url || imageInfo.id || imageInfo.path) : null;
 
   if (!imagePath) {
     return next(new HttpError("Image upload succeeded but no path was returned.", 500));
