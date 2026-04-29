@@ -2,7 +2,6 @@ const cors = require("cors");
 const express = require("express");
 const mongoose = require("mongoose");
 const logger = require("./utils/logger");
-const bodyParser = require("body-parser");
 require("dotenv").config();
 
 const HttpError = require("./models/http-error");
@@ -25,8 +24,8 @@ app.use((req, res, next) => {
 });
 
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 
 
