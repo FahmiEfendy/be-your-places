@@ -7,3 +7,6 @@ nodemon.json
 # Environment variables
 .env
 .env.prod
+
+# Logs
+logs/

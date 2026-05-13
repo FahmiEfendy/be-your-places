@@ -17,8 +17,9 @@ const getAllPlaces = async (req, res, next) => {
 
   res.status(200).json({
     message: "Successfully get all places from database!",
-    data: result,
+    data: result.map((place) => place.toObject({ getters: true })),
   });
+
 };
 
 const getPlacesByUserId = async (req, res, next) => {
