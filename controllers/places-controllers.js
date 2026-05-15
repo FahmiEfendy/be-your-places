@@ -8,16 +8,31 @@ const addressToCoordinates = require("../utils/location");
 const { uploadImage, deleteImage } = require("../utils/openinary");
 
 const getAllPlaces = async (req, res, next) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 6;
+  const skip = (page - 1) * limit;
+
   let result;
+  let totalCount;
   try {
-    result = await Place.find();
+    totalCount = await Place.countDocuments();
+    result = await Place.find()
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .skip(skip)
+      .limit(limit);
   } catch (err) {
     return next(new HttpError(`Failed to get all data: ${err.message}`, 500));
   }
 
   res.status(200).json({
     message: "Successfully get all places from database!",
-    data: result,
+    data: result.map((place) => place.toObject({ getters: true })),
+    meta: {
+      total: totalCount,
+      page,
+      limit,
+      hasMore: skip + result.length < totalCount
+    }
   });
 };
 
@@ -71,37 +86,42 @@ const createPlace = async (req, res, next) => {
     return next(error);
   }
 
-  // Upload to Openinary
-  let imageData;
-  try {
-    imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype, "Your_Places/place");
-    logger.info("Openinary Upload Success! Data received.");
-  } catch (err) {
-    return next(new HttpError("Image upload failed.", 500));
-  }
-
-  // Openinary might return a string that needs parsing
-  let processedData = imageData;
-  if (typeof imageData === "string") {
+  let imagePath;
+  if (req.file) {
+    // Upload to Openinary
+    let imageData;
     try {
-      processedData = JSON.parse(imageData);
-    } catch (e) {
-      logger.error("Failed to parse Openinary response string:", imageData.substring(0, 100));
+      imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype, "Your_Places/place");
+      logger.info("Openinary Upload Success! Data received.");
+    } catch (err) {
+      return next(new HttpError("Image upload failed.", 500));
     }
-  }
 
-  // Openinary returns an object with a 'files' array
-  let imageInfo = processedData;
-  if (processedData && processedData.files && Array.isArray(processedData.files)) {
-    imageInfo = processedData.files[0];
-  } else if (Array.isArray(processedData)) {
-    imageInfo = processedData[0];
-  }
+    // Openinary might return a string that needs parsing
+    let processedData = imageData;
+    if (typeof imageData === "string") {
+      try {
+        processedData = JSON.parse(imageData);
+      } catch (e) {
+        logger.error("Failed to parse Openinary response string:", imageData.substring(0, 100));
+      }
+    }
 
-  const imagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
+    // Openinary returns an object with a 'files' array
+    let imageInfo = processedData;
+    if (processedData && processedData.files && Array.isArray(processedData.files)) {
+      imageInfo = processedData.files[0];
+    } else if (Array.isArray(processedData)) {
+      imageInfo = processedData[0];
+    }
+
+    imagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
+  } else if (req.body.image || req.body.imageUrl) {
+    imagePath = req.body.image || req.body.imageUrl;
+  }
 
   if (!imagePath) {
-    return next(new HttpError("Image upload succeeded but no path was returned.", 500));
+    return next(new HttpError("No image provided (upload or URL required).", 422));
   }
 
   const newPlace = new Place({
@@ -144,7 +164,7 @@ const updatePlace = async (req, res, next) => {
     return next(new HttpError("Invalid inputs passed, please check your data.", 422));
   }
 
-  const { title, description } = req.body;
+  const { title, description, image, imageUrl } = req.body;
   const placeId = req.params.pid;
   let selectedPlace;
 
@@ -154,12 +174,49 @@ const updatePlace = async (req, res, next) => {
     return next(new HttpError("Updating place failed, please try again.", 500));
   }
 
+  if (!selectedPlace) {
+    return next(new HttpError("Could not find place for this id.", 404));
+  }
+
   if (selectedPlace.creator.toString() !== req.userData.userId) {
     return next(new HttpError("You are not authorized to edit this place", 401));
   }
 
   selectedPlace.title = title;
   selectedPlace.description = description;
+
+  // Handle Image Update
+  let newImagePath;
+  if (req.file) {
+    try {
+      const imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype, "Your_Places/place");
+      let processedData = imageData;
+      if (typeof imageData === "string") {
+        processedData = JSON.parse(imageData);
+      }
+      let imageInfo = processedData;
+      if (processedData && processedData.files && Array.isArray(processedData.files)) {
+        imageInfo = processedData.files[0];
+      } else if (Array.isArray(processedData)) {
+        imageInfo = processedData[0];
+      }
+      newImagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
+    } catch (err) {
+      return next(new HttpError("Image upload failed.", 500));
+    }
+  } else if (image || imageUrl) {
+    newImagePath = image || imageUrl;
+  }
+
+  if (newImagePath) {
+    const oldImagePath = selectedPlace.image;
+    selectedPlace.image = newImagePath;
+
+    // If the old image was an Openinary path (not a full URL), delete it
+    if (oldImagePath && !oldImagePath.startsWith("http")) {
+      await deleteImage(oldImagePath);
+    }
+  }
 
   try {
     await selectedPlace.save();

@@ -10,9 +10,18 @@ const { uploadImage } = require("../utils/openinary");
 const JWT_TOKEN_KEY = process.env.JWT_TOKEN_KEY;
 
 const getAllUsers = async (req, res, next) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 6;
+  const skip = (page - 1) * limit;
+
   let allUsers;
+  let totalCount;
   try {
-    allUsers = await User.find({}, "-password");
+    totalCount = await User.countDocuments();
+    allUsers = await User.find({}, "-password")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
   } catch (err) {
     return next(new HttpError("Fetching users failed, please try again later.", 500));
   }
@@ -20,6 +29,12 @@ const getAllUsers = async (req, res, next) => {
   res.status(200).json({
     message: "Successfully get all users data",
     data: allUsers.map((user) => user.toObject({ getters: true })),
+    meta: {
+      total: totalCount,
+      page,
+      limit,
+      hasMore: skip + allUsers.length < totalCount
+    }
   });
 };
 
@@ -49,39 +64,43 @@ const signUp = async (req, res, next) => {
     return next(new HttpError("Could not create user, please try again.", 500));
   }
 
-  // Upload to Openinary
-  let imageData;
-  try {
-    imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype, "Your_Places/profile");
-    // Only log the essential info to avoid circular reference crashes
-    logger.info("Openinary Upload Success! Data received.");
-  } catch (err) {
-    return next(new HttpError("Image upload failed.", 500));
-  }
-
-  // Openinary might return a string that needs parsing
-  let processedData = imageData;
-  if (typeof imageData === "string") {
+  let imagePath;
+  if (req.file) {
+    // Upload to Openinary
+    let imageData;
     try {
-      processedData = JSON.parse(imageData);
-    } catch (e) {
-      logger.error("Failed to parse Openinary response as JSON.");
+      imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype, "Your_Places/profile");
+      // Only log the essential info to avoid circular reference crashes
+      logger.info("Openinary Upload Success! Data received.");
+    } catch (err) {
+      return next(new HttpError("Image upload failed.", 500));
     }
-  }
 
-  // Openinary returns an object with a 'files' array
-  let imageInfo = processedData;
-  if (processedData && processedData.files && Array.isArray(processedData.files)) {
-    imageInfo = processedData.files[0];
-  } else if (Array.isArray(processedData)) {
-    imageInfo = processedData[0];
-  }
+    // Openinary might return a string that needs parsing
+    let processedData = imageData;
+    if (typeof imageData === "string") {
+      try {
+        processedData = JSON.parse(imageData);
+      } catch (e) {
+        logger.error("Failed to parse Openinary response as JSON.");
+      }
+    }
 
-  const imagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
+    // Openinary returns an object with a 'files' array
+    let imageInfo = processedData;
+    if (processedData && processedData.files && Array.isArray(processedData.files)) {
+      imageInfo = processedData.files[0];
+    } else if (Array.isArray(processedData)) {
+      imageInfo = processedData[0];
+    }
+
+    imagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
+  } else if (req.body.image || req.body.imageUrl) {
+    imagePath = req.body.image || req.body.imageUrl;
+  }
 
   if (!imagePath) {
-    logger.error("No image path found in Openinary response.");
-    return next(new HttpError("Image upload succeeded but no path was returned.", 500));
+    return next(new HttpError("No image provided (upload or URL required).", 422));
   }
 
   const newUser = new User({

@@ -36,6 +36,7 @@ router.post(
 // api/places/:pid
 router.patch(
   "/:pid",
+  fileUpload.single("image"),
   [check("title").not().isEmpty(), check("description").isLength({ min: 5 })],
   placesControllers.updatePlace
 );
