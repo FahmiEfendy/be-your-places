@@ -10,9 +10,18 @@ const { uploadImage } = require("../utils/openinary");
 const JWT_TOKEN_KEY = process.env.JWT_TOKEN_KEY;
 
 const getAllUsers = async (req, res, next) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 6;
+  const skip = (page - 1) * limit;
+
   let allUsers;
+  let totalCount;
   try {
-    allUsers = await User.find({}, "-password");
+    totalCount = await User.countDocuments();
+    allUsers = await User.find({}, "-password")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
   } catch (err) {
     return next(new HttpError("Fetching users failed, please try again later.", 500));
   }
@@ -20,6 +29,12 @@ const getAllUsers = async (req, res, next) => {
   res.status(200).json({
     message: "Successfully get all users data",
     data: allUsers.map((user) => user.toObject({ getters: true })),
+    meta: {
+      total: totalCount,
+      page,
+      limit,
+      hasMore: skip + allUsers.length < totalCount
+    }
   });
 };
 

@@ -8,9 +8,18 @@ const addressToCoordinates = require("../utils/location");
 const { uploadImage, deleteImage } = require("../utils/openinary");
 
 const getAllPlaces = async (req, res, next) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 6;
+  const skip = (page - 1) * limit;
+
   let result;
+  let totalCount;
   try {
-    result = await Place.find();
+    totalCount = await Place.countDocuments();
+    result = await Place.find()
+      .sort({ createdAt: -1 }) // Sort by newest first
+      .skip(skip)
+      .limit(limit);
   } catch (err) {
     return next(new HttpError(`Failed to get all data: ${err.message}`, 500));
   }
@@ -18,8 +27,13 @@ const getAllPlaces = async (req, res, next) => {
   res.status(200).json({
     message: "Successfully get all places from database!",
     data: result.map((place) => place.toObject({ getters: true })),
+    meta: {
+      total: totalCount,
+      page,
+      limit,
+      hasMore: skip + result.length < totalCount
+    }
   });
-
 };
 
 const getPlacesByUserId = async (req, res, next) => {
