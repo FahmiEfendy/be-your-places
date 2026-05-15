@@ -3,7 +3,7 @@ name: Build and Push to GHCR
 on:
   push:
     branches:
-      - feat/migration # Only triggers on your migration branch
+      - main
 
 jobs:
   build-and-push:
