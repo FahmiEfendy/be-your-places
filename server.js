@@ -30,6 +30,22 @@ app.use(express.urlencoded({ extended: true }));
 
 
 // Routes
+app.get("/api/health", async (req, res) => {
+  try {
+    const isDbConnected = mongoose.connection.readyState === 1;
+    if (!isDbConnected) {
+      return res.status(500).json({ status: "DOWN", database: "disconnected" });
+    }
+    res.status(200).json({ 
+      status: "UP", 
+      database: "connected",
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(500).json({ status: "DOWN", error: err.message });
+  }
+});
+
 app.use("/api/places", placesRoutes);
 app.use("/api/users", usersRoutes);
 
