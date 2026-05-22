@@ -30,7 +30,7 @@ app.use(express.urlencoded({ extended: true }));
 
 
 // Routes
-app.get("/api/health", async (req, res) => {
+app.get("/health", async (req, res) => {
   try {
     const isDbConnected = mongoose.connection.readyState === 1;
     if (!isDbConnected) {
@@ -46,8 +46,8 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-app.use("/api/places", placesRoutes);
-app.use("/api/users", usersRoutes);
+app.use("/places", placesRoutes);
+app.use("/users", usersRoutes);
 
 // Error Handler for undefined routes
 app.use((req, res, next) => {
