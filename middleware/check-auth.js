@@ -16,6 +16,7 @@ const checkToken = (req, res, next) => {
     // Verify token
     const decodedToken = jwt.verify(token, JWT_TOKEN_KEY);
     req.userData = { userId: decodedToken.userId };
+    req.userId = decodedToken.userId; // For logging
     next();
   } catch (err) {
     return next(

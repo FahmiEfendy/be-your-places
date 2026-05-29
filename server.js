@@ -1,4 +1,5 @@
 const cors = require("cors");
+const morgan = require("morgan");
 const express = require("express");
 const mongoose = require("mongoose");
 const logger = require("./utils/logger");
@@ -10,18 +11,27 @@ const placesRoutes = require("./routes/places-routes");
 
 const app = express();
 
-// Request Logger
-app.use((req, res, next) => {
-  res.on("finish", () => {
-    const message = `${req.method} ${req.originalUrl} ${res.statusCode}`;
-    if (res.statusCode >= 400) {
-      logger.error(message);
-    } else {
-      logger.info(message);
-    }
-  });
-  next();
+// Morgan tokens for structured logging
+morgan.token("user-id", (req, res) => {
+  return req.userId || "anonymous";
 });
+
+morgan.token("response-time", (req, res) => {
+  if (!res._header) return "";
+  return res._header && res.getHeader("x-response-time") || "-";
+});
+
+// HTTP Request Logger with Morgan -> Winston
+const morganStream = {
+  write: (message) => logger.info(message.trim()),
+};
+
+app.use(
+  morgan(
+    '[audit] :date[iso] user=:user-id method=:method url=:url status=:status response-time=:response-time ms',
+    { stream: morganStream }
+  )
+);
 
 app.use(cors());
 app.use(express.json());
