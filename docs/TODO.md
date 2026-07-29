@@ -2,13 +2,6 @@
 
 ## 🔴 Critical
 
-- [ ] **Security hardening** — Add `helmet` middleware for production HTTP security headers
-- [ ] **CORS configuration** — Restrict `cors()` to specific allowed origins instead of `*`
-- [ ] **Rate limiting** — Add `express-rate-limit` to auth endpoints to prevent brute-force attacks
-- [ ] **Input validation & sanitization** — Strengthen `express-validator` rules; sanitize all inputs to prevent injection attacks
-- [ ] **Proper .env structure** — Replace `env.example` with `.env.example` (dotfile convention); add all missing variables
-- [ ] **Graceful shutdown** — Handle `SIGTERM`/`SIGINT` to close MongoDB connection and finish pending requests
-- [ ] **JWT secret rotation** — Document and implement a process for rotating `JWT_TOKEN_KEY` without downtime
 
 ## 🟡 Medium
 

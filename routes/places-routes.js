@@ -26,9 +26,9 @@ router.post(
   "/",
   fileUpload.single("image"),
   [
-    check("title").not().isEmpty(),
-    check("description").isLength({ min: 5 }),
-    check("address").not().isEmpty(),
+    check("title").trim().escape().notEmpty().withMessage("Title is required."),
+    check("description").trim().escape().isLength({ min: 5 }).withMessage("Description must be at least 5 characters long."),
+    check("address").trim().escape().notEmpty().withMessage("Address is required."),
   ],
   placesControllers.createPlace
 );
@@ -37,7 +37,10 @@ router.post(
 router.patch(
   "/:pid",
   fileUpload.single("image"),
-  [check("title").not().isEmpty(), check("description").isLength({ min: 5 })],
+  [
+    check("title").trim().escape().notEmpty().withMessage("Title is required."),
+    check("description").trim().escape().isLength({ min: 5 }).withMessage("Description must be at least 5 characters long.")
+  ],
   placesControllers.updatePlace
 );
 

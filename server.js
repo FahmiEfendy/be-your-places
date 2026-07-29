@@ -1,5 +1,12 @@
+// Polyfill for Node.js 24+ compatibility with older jsonwebtoken/jwa dependencies
+const bufferModule = require("buffer");
+if (!bufferModule.SlowBuffer) {
+  bufferModule.SlowBuffer = class SlowBuffer extends bufferModule.Buffer {};
+}
+
 const cors = require("cors");
 const express = require("express");
+const helmet = require("helmet");
 const mongoose = require("mongoose");
 const logger = require("./utils/logger");
 require("dotenv").config();
@@ -9,6 +16,9 @@ const usersRoutes = require("./routes/users-routes");
 const placesRoutes = require("./routes/places-routes");
 
 const app = express();
+
+// Security Headers
+app.use(helmet());
 
 // Request Logger
 app.use((req, res, next) => {
@@ -23,7 +33,22 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors());
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",")
+  : ["http://localhost:3000", "http://localhost:5173"];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== "production") {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -92,8 +117,32 @@ const connectDB = async () => {
 
 const PORT = process.env.PORT || 5001;
 
+let server;
+
 connectDB().then(() => {
-  app.listen(PORT, () => {
+  server = app.listen(PORT, () => {
     logger.info(`Server is running on port ${PORT}`);
   });
 });
+
+const gracefulShutdown = (signal) => {
+  logger.info(`Received ${signal}. Starting graceful shutdown...`);
+  if (server) {
+    server.close(async () => {
+      logger.info("HTTP server closed.");
+      try {
+        await mongoose.connection.close();
+        logger.info("MongoDB connection closed.");
+        process.exit(0);
+      } catch (err) {
+        logger.error("Error closing MongoDB connection gracefully:", err);
+        process.exit(1);
+      }
+    });
+  } else {
+    process.exit(0);
+  }
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));

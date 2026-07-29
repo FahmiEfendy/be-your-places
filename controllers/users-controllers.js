@@ -135,6 +135,11 @@ const signUp = async (req, res, next) => {
 };
 
 const login = async (req, res, next) => {
+  const error = validationResult(req);
+  if (!error.isEmpty()) {
+    return next(new HttpError("Invalid inputs passed, please check your credentials.", 422));
+  }
+
   const { email, password } = req.body;
 
   let userExist;
