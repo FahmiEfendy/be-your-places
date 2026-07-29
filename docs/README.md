@@ -51,11 +51,13 @@ be-your-places/
 |----------|-------------|---------|----------|
 | `PORT` | Server listen port | `5001` | No |
 | `NODE_ENV` | Environment (`development`, `production`) | `development` | No |
+| `ALLOWED_ORIGINS` | Comma-separated CORS allowlist, enforced when `NODE_ENV=production` | `http://localhost:3000,http://localhost:5173` | Yes (production) |
 | `DB_USER` | MongoDB Atlas username | — | Yes* |
 | `DB_PASSWORD` | MongoDB Atlas password | — | Yes* |
 | `DB_NAME` | MongoDB database / Atlas app name | `your_places` | Yes* |
 | `MONGODB_URI` | Full MongoDB connection URI (overrides above) | — | Yes* |
 | `JWT_TOKEN_KEY` | Secret key for signing JWT tokens (min. 32 chars) | — | Yes |
+| `JWT_FALLBACK_KEYS` | Comma-separated list of previous `JWT_TOKEN_KEY` values, tried in order if the primary fails verification — enables rotating `JWT_TOKEN_KEY` without invalidating tokens already issued | — | No |
 | `JWT_TOKEN_EXPIRED` | JWT token expiry duration | `24h` | No |
 | `GOOGLE_API_KEY` | Google Maps / Places API key for geocoding | — | Yes |
 | `OPENINARY_URL` | Openinary image manager base URL | `http://main-openinary:3000` | Yes |
@@ -63,6 +65,8 @@ be-your-places/
 | `LOG_FORMAT` | Morgan/Winston log format | `combined` | No |
 
 > \* Either `MONGODB_URI` **or** all three of `DB_USER`, `DB_PASSWORD`, `DB_NAME` must be provided.
+
+> **Important:** `ALLOWED_ORIGINS` is only enforced when `NODE_ENV=production` — with any other value, CORS allows all origins. Make sure production deployments set `NODE_ENV=production` and `ALLOWED_ORIGINS` to the real frontend origin (e.g. `https://places.fahmiefendy.dev`), not the localhost placeholders in `.env.example`.
 
 ## API Endpoints
 
@@ -72,11 +76,11 @@ be-your-places/
 | `GET` | `/health` | Health check (includes DB status) | No |
 
 ### Users
-| Method | Path | Description | Auth |
-|--------|------|-------------|------|
-| `GET` | `/users` | List all users | No |
-| `POST` | `/users/signup` | Register a new user (with profile image) | No |
-| `POST` | `/users/login` | Login and receive JWT | No |
+| Method | Path | Description | Auth | Rate limited |
+|--------|------|-------------|------|--------------|
+| `GET` | `/users` | List all users | No | No |
+| `POST` | `/users/signup` | Register a new user (with profile image) | No | Yes (20 / 15 min per IP) |
+| `POST` | `/users/login` | Login and receive JWT | No | Yes (20 / 15 min per IP) |
 
 ### Places
 | Method | Path | Description | Auth |
@@ -88,15 +92,15 @@ be-your-places/
 | `PATCH` | `/places/:pid` | Update place details | Yes |
 | `DELETE` | `/places/:pid` | Delete a place | Yes |
 
-### Products
-| Method | Path | Description | Auth |
-|--------|------|-------------|------|
-| `GET` | `/products` | List all products | No |
-| `GET` | `/products/recommendation` | Get recommended products | No |
-| `GET` | `/products/:productId` | Get product by ID | No |
-| `POST` | `/products` | Create a new product | Yes |
-| `PATCH` | `/products/:productId` | Update product | Yes |
-| `DELETE` | `/products/:productId` | Delete product | Yes |
+## Security
+
+- **Helmet** — sets standard security response headers (`X-Content-Type-Options`, `X-DNS-Prefetch-Control`, etc.) on every response.
+- **CORS allowlist** — only origins in `ALLOWED_ORIGINS` are permitted when `NODE_ENV=production`; otherwise all origins are allowed (dev convenience).
+- **Rate limiting** — `/users/login` and `/users/signup` are limited to 20 requests / 15 minutes per client IP (`express-rate-limit`) to slow down brute-force/credential-stuffing attempts.
+- **`trust proxy`** — set to `1` in `server.js` so Express resolves the real client IP from the `X-Forwarded-For` header set by the Nginx reverse proxy (`infra/nginx/conf.d/yourplaces.conf`) rather than the proxy's own IP. **This is required** for the rate limiter to key by real client and to avoid it throwing on every request (see Troubleshooting).
+- **Input validation & sanitization** — `express-validator` rules (`trim()`, `escape()`, `notEmpty()`, `isEmail()`, `isLength()`) on `users` and `places` routes; results are checked via `validationResult()` in each controller before touching the database.
+- **JWT verification with fallback keys** — `middleware/check-auth.js` verifies against `JWT_TOKEN_KEY` first, then each key in `JWT_FALLBACK_KEYS` in order. To rotate the JWT secret with zero downtime: move the current `JWT_TOKEN_KEY` into `JWT_FALLBACK_KEYS`, set a new `JWT_TOKEN_KEY`, and deploy — tokens signed with the old key keep verifying until they expire, then drop the old key from `JWT_FALLBACK_KEYS` in a later deploy.
+- **Graceful shutdown** — on `SIGTERM`/`SIGINT`, the server stops accepting new connections, lets in-flight requests finish, closes the MongoDB connection, then exits.
 
 ## Local Development
 
@@ -140,6 +144,9 @@ curl http://api-places.fahmiefendy.dev/health
 | 502 from nginx | Check container is running: `docker ps --filter name=yp-be` |
 | Health check failing | Check app logs: `docker logs yp-be` |
 | Google Maps errors | Verify `GOOGLE_API_KEY` is valid and not restricted to another domain |
+| `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` / login-signup fail behind the proxy | `app.set("trust proxy", 1)` is missing or was reverted — required since Nginx sets `X-Forwarded-For` on every request. Without it, `express-rate-limit` throws on `/users/login` and `/users/signup`. |
+| Login/signup return `429` unexpectedly | Rate limit is 20 requests / 15 min per client IP; if many users share one IP (NAT/corporate network), consider raising `max` in `routes/users-routes.js` |
+| CORS errors from the frontend | Verify `ALLOWED_ORIGINS` includes the exact frontend origin (scheme + host, e.g. `https://places.fahmiefendy.dev`) and that `NODE_ENV=production` is set — the allowlist is only enforced in production |
 
 ## Related Files
 

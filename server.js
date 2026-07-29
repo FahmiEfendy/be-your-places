@@ -17,6 +17,10 @@ const placesRoutes = require("./routes/places-routes");
 
 const app = express();
 
+// Trust the single Nginx reverse-proxy hop in front of this server so
+// req.ip / X-Forwarded-For are resolved correctly (required by express-rate-limit).
+app.set("trust proxy", 1);
+
 // Security Headers
 app.use(helmet());
 
