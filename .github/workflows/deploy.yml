@@ -115,7 +115,13 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" | base64 -d > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          echo "${{ secrets.BE_ENV_FILE }}" | base64 -d | \
+
+          DECODED_ENV=$(echo "${{ secrets.BE_ENV_FILE }}" | base64 -d)
+          VAR_COUNT=$(echo "$DECODED_ENV" | grep -cE '^[A-Za-z_][A-Za-z0-9_]*=' || true)
+          echo "### Backend .env" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Variables applied:** $VAR_COUNT" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "$DECODED_ENV" | \
             ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p 2222 gh-deploy@localhost \
               "/home/fahmi/homeserver/apps/your-places/update-be-env.sh"
 
