@@ -26,7 +26,7 @@ router.post(
   fileUpload.single("image"),
   [
     check("name").trim().escape().notEmpty().withMessage("Name is required."),
-    check("email").normalizeEmail().isEmail().withMessage("Please provide a valid email address."),
+    check("email").normalizeEmail({ gmail_remove_dots: false }).isEmail().withMessage("Please provide a valid email address."),
     check("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters long.")
   ],
   usersControllers.signUp
@@ -37,7 +37,7 @@ router.post(
   "/login",
   authLimiter,
   [
-    check("email").normalizeEmail().isEmail().withMessage("Please provide a valid email address."),
+    check("email").normalizeEmail({ gmail_remove_dots: false }).isEmail().withMessage("Please provide a valid email address."),
     check("password").notEmpty().withMessage("Password is required.")
   ],
   usersControllers.login
