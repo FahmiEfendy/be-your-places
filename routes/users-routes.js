@@ -4,6 +4,7 @@ const rateLimit = require("express-rate-limit");
 
 const router = express.Router();
 
+const checkAuth = require("../middleware/check-auth");
 const fileUpload = require("../middleware/file-upload");
 const usersControllers = require("../controllers/users-controllers");
 
@@ -41,6 +42,21 @@ router.post(
     check("password").notEmpty().withMessage("Password is required.")
   ],
   usersControllers.login
+);
+
+// api/users/me
+router.get("/me", checkAuth, usersControllers.getMe);
+
+// api/users/me
+router.patch(
+  "/me",
+  checkAuth,
+  fileUpload.single("image"),
+  [
+    check("name").optional().trim().escape().notEmpty().withMessage("Name cannot be empty."),
+    check("email").optional().normalizeEmail({ gmail_remove_dots: false }).isEmail().withMessage("Please provide a valid email address.")
+  ],
+  usersControllers.updateMe
 );
 
 module.exports = router;

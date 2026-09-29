@@ -5,7 +5,7 @@ const logger = require("../utils/logger");
 
 const User = require("../models/user");
 const HttpError = require("../models/http-error");
-const { uploadImage } = require("../utils/openinary");
+const { uploadImage, deleteImage } = require("../utils/openinary");
 
 const JWT_TOKEN_KEY = process.env.JWT_TOKEN_KEY;
 
@@ -181,6 +181,112 @@ const login = async (req, res, next) => {
   });
 };
 
+const getMe = async (req, res, next) => {
+  let user;
+  try {
+    user = await User.findById(req.userData.userId, "-password");
+  } catch (err) {
+    return next(new HttpError("Fetching profile failed, please try again later.", 500));
+  }
+
+  if (!user) {
+    return next(new HttpError("Could not find user for this id.", 404));
+  }
+
+  res.status(200).json({
+    message: "Successfully fetched profile.",
+    data: user.toObject({ getters: true }),
+  });
+};
+
+const updateMe = async (req, res, next) => {
+  const error = validationResult(req);
+  if (!error.isEmpty()) {
+    return next(new HttpError("Invalid inputs passed, please check your data.", 422));
+  }
+
+  const { name, email, image, imageUrl } = req.body;
+
+  let user;
+  try {
+    user = await User.findById(req.userData.userId);
+  } catch (err) {
+    return next(new HttpError("Updating profile failed, please try again later.", 500));
+  }
+
+  if (!user) {
+    return next(new HttpError("Could not find user for this id.", 404));
+  }
+
+  if (email && email !== user.email) {
+    let emailTaken;
+    try {
+      emailTaken = await User.findOne({ email, _id: { $ne: user.id } });
+    } catch (err) {
+      return next(new HttpError("Updating profile failed, please try again later.", 500));
+    }
+
+    if (emailTaken) {
+      return next(new HttpError("Email is already in use, please choose another one.", 422));
+    }
+
+    user.email = email;
+  }
+
+  if (name) {
+    user.name = name;
+  }
+
+  // Handle Image Update
+  let newImagePath;
+  if (req.file) {
+    try {
+      const imageData = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype, "Your_Places/profile");
+      let processedData = imageData;
+      if (typeof imageData === "string") {
+        processedData = JSON.parse(imageData);
+      }
+      let imageInfo = processedData;
+      if (processedData && processedData.files && Array.isArray(processedData.files)) {
+        imageInfo = processedData.files[0];
+      } else if (Array.isArray(processedData)) {
+        imageInfo = processedData[0];
+      }
+      newImagePath = imageInfo ? (imageInfo.url || imageInfo.id || imageInfo.public_id || imageInfo.path) : null;
+    } catch (err) {
+      return next(new HttpError("Image upload failed.", 500));
+    }
+  } else if (image || imageUrl) {
+    newImagePath = image || imageUrl;
+  }
+
+  if (newImagePath) {
+    const oldImagePath = user.image;
+    user.image = newImagePath;
+
+    // If the old image was an Openinary path (not a full URL), delete it
+    if (oldImagePath && !oldImagePath.startsWith("http")) {
+      await deleteImage(oldImagePath);
+    }
+  }
+
+  try {
+    await user.save();
+  } catch (err) {
+    return next(new HttpError("Updating profile failed, please try again later.", 500));
+  }
+
+  const responseUser = user.toObject({ getters: true });
+  delete responseUser.password;
+
+  res.status(200).json({
+    message: "Successfully updated your profile!",
+    data: responseUser,
+  });
+};
+
 exports.getAllUsers = getAllUsers;
 exports.signUp = signUp;
 exports.login = login;
+exports.getMe = getMe;
+exports.updateMe = updateMe;
